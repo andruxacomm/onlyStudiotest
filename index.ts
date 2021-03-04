@@ -21,7 +21,7 @@ type Result<T> = {
 };
 
 const sourceStrings = {
-  hello: 'Добрый вечор, {username}!',
+  hello: 'Добрый вечор, {username}!, {username}',
   admin: {
     objectForm: {
       label: 'Пароль администратора',
@@ -32,36 +32,36 @@ const sourceStrings = {
 const formatFn = (str: string, value?: TFormatArgs): string => {
   if (value) {
     Object.keys(value).forEach(
-      (key) => (str = str.replace(`{${key}}`, `${value[key]}`))
+      (key) => {
+        const searchValue = `{${key}}`;
+        while (str.indexOf(searchValue) !== -1) {
+          str = str.replace(searchValue, `${value[key]}`);
+        }
+      }
     );
   }
   return str;
 };
 const i18Fn = <T extends Input>(strings: T): Result<T> => {
-  const recursiveMethod = (arg: Input): Result<T> => {
-    let result: Result<T> | undefined;
-    Object.keys(arg).forEach(
-      (key) =>
-        (result = {
-          ...result,
-          [key]:
-            typeof arg[key] === 'string'
-              ? (prop?: TFormatArgs) => {
-                return formatFn(arg[key] as string, prop);
-              }
-              : recursiveMethod(arg[key] as Input)
-        })
-    );
-    if (!result) throw new Error('result is undefined');
-    return result;
-  };
-  return recursiveMethod(strings);
+  let result: Result<T>;
+  Object.keys(strings).forEach(key => {
+    const stringKey = strings[key];
+    result = {
+      ...result,
+      [key]: typeof stringKey === 'string'
+        ? (prop?: TFormatArgs) => {
+          return formatFn(stringKey, prop);
+        }
+        : i18Fn(stringKey)
+    };
+  });
+  return result;
 };
 
 //Tests
 const t = i18Fn(sourceStrings);
 console.log('🚀 Starting tests...');
-const testFormat = 'Добрый вечор, me!' === t.hello({ username: 'me' });
+const testFormat = 'Добрый вечор, me!, me' === t.hello({ username: 'me' });
 console.assert(testFormat, '  ❌ First level failed!');
 const testDepth = 'Пароль администратора' === t.admin.objectForm.label();
 console.assert(testDepth, '  ❌ Generic depth failed!');
